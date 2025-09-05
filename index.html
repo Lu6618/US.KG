@@ -34,6 +34,14 @@
     50%{box-shadow:0 0 15px #4caf50;}
     100%{box-shadow:0 0 0px #4caf50;}
   }
+  @keyframes finalFlash {
+    0%, 100% { box-shadow:0 0 0px #ff9800; transform: scale(1.25);}
+    50% { box-shadow:0 0 20px #ff9800; transform: scale(1.35);}
+  }
+  .final-active {
+    animation: finalFlash 0.8s infinite;
+    border: 4px solid #ff9800;
+  }
   .btn{padding:12px 20px;border:none;border-radius:8px;background:#4a90e2;color:#fff;font-weight:bold;cursor:pointer;}
   .status{font-size:25px;font-weight:900;color:#fff;}
   .backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.5);display:none;align-items:center;justify-content:center;}
@@ -87,7 +95,6 @@ const players = ["男方","女方"];
 const rewards = ["指定身上任意位置让对方舔20秒","对方跪着自己站着让他（她）口一分钟","用嘴含住对方的蛋蛋或阴蒂半分钟","用奶或JJ蹭对方的脸10秒","拔对方一根毛","对方给你口交20秒"];
 const penalties = ["和对方舌吻十秒","舔对方的任何部位30秒","给对方口交30秒","吸咬对方的乳头20秒","用嘴含住对方的蛋蛋或阴蒂10秒","对方站着自己跪着帮他（她）口20秒","像口交一样吸吮对方手指10秒","用手扣自己下面1分钟，或撸30下","帮对手含住蛋蛋或阴蒂10秒舌头打转","撅起PP让对方打3下","被对方用牙齿咬住乳头磨蹭10秒","男方站立抱起女方悬空插入20次不许射"];
 
-// 特别排序
 function sortTasksSpecially(tasks){
   return tasks.slice()
     .sort((a,b)=>a.length-b.length)
@@ -98,7 +105,6 @@ function sortTasksSpecially(tasks){
 const rewardsSpecial = sortTasksSpecially(rewards);
 const penaltiesSpecial = sortTasksSpecially(penalties);
 
-// 固定6x6顺序模式
 const pattern = [
   ["reward","safe","penalty","reward","safe","penalty"],
   ["safe","penalty","reward","safe","penalty","reward"],
@@ -108,7 +114,6 @@ const pattern = [
   ["penalty","reward","safe","penalty","reward","safe"]
 ];
 
-// 创建格子严格按照pattern
 for (let row=0; row<SIZE; row++){
   for (let col=0; col<SIZE; col++){
     const type = pattern[row][col];
@@ -121,53 +126,65 @@ for (let row=0; row<SIZE; row++){
   }
 }
 
-// 工具函数
 function randInt(a,b){return Math.floor(Math.random()*(b-a+1))+a;}
 function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 
-// 清理高亮
 function clearActive(){
-  cells.forEach(cell => cell.classList.remove("active","safe-active"));
+  cells.forEach(cell => cell.classList.remove("active","safe-active","final-active"));
 }
 
-// 闪烁动画 + 音效
+// 播放音效，每次克隆一个实例
+function playTick(){
+  const sound = tickSound.cloneNode();
+  sound.play();
+}
+
+// 随机选择格子，闪烁 + 音效同步
 async function randomSelect(){
   let last = null;
   const steps = randInt(20,30);
   let speed = 30;
+
   for(let i=0;i<steps;i++){
-    const idx = randInt(0,cells.length-1);
     if(last) last.classList.remove("active","safe-active");
+    const idx = randInt(0,cells.length-1);
     const cell = cells[idx];
     cell.classList.add("active");
+
+    playTick();
+
     last = cell;
-
-    tickSound.currentTime = 0;
-    tickSound.play();
-
     await sleep(speed);
     speed += Math.floor(Math.pow(i/steps,2)*50)+10;
   }
+
+  if(last) last.classList.remove("active");
   dingSound.currentTime = 0;
   dingSound.play();
 
   return last;
 }
 
-// 显示任务
-function showTask(type,cell){
+// 显示任务并让最后格子持续闪烁
+function showTask(type, cell) {
   taskModal.style.display = "flex";
+
+  // 移除上一次 final-active
+  cells.forEach(c => c.classList.remove("final-active"));
+
   if(type==="reward"){
     taskTitle.innerText="奖励任务";
     taskText.innerText=rewardsSpecial[randInt(0,rewardsSpecial.length-1)];
+    cell.classList.add("final-active");
   } else if(type==="penalty"){
     taskTitle.innerText="惩罚任务";
     taskText.innerText=penaltiesSpecial[randInt(0,penaltiesSpecial.length-1)];
+    cell.classList.add("final-active");
   } else {
     taskTitle.innerText="安全区";
     taskText.innerText="恭喜，本轮无任务！";
-    cell.classList.remove("active");
-    cell.classList.add("safe-active");
+    cell.classList.add("safe-active","final-active");
+    cell.addEventListener('animationend', () => cell.classList.remove('safe-active'), { once: true });
   }
 }
 
@@ -192,7 +209,6 @@ btnFail.onclick=()=>{
 function nextTurn(){
   turn = (turn+1)%2;
   turnLabel.innerText = "当前轮到："+players[turn];
-  turnLabel.innerText = players[turn];
   startBtn.disabled=false;
 }
 </script>
